@@ -1,163 +1,247 @@
 {
-  "openapi" : "3.0.0",
-  "info" : {
-    "title" : "User Order Service",
-    "contact" : {
-      "name" : "eng-app-services-lyra"
-    },
-    "version" : "1.0.0-oas3"
+  "openapi": "3.0.0",
+  "info": {
+    "version": "1.0.0-oas3",
+    "title": "Checkout Service",
+    "contact": {
+      "name": "eng-app-services-lyra"
+    }
   },
-  "servers" : [ {
-    "url" : "https://uos.api.staging.ipsy.com/v1"
-  } ],
-  "paths" : {
-    "/user_orders" : {
-      "post" : {
-        "summary" : "Places an order for a user.",
-        "description" : "Place an order for the user. Currently supports just a Choice order for Extreme Customization, but may have future use cases in Add-ons/Flash sales and other order types.",
-        "requestBody" : {
-          "description" : "User order creation request params",
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UserOrderRequest"
-              }
-            }
+  "paths": {
+    "/subscriptions/{subscription_id}/cycles/{cycle_id}/orders": {
+      "parameters": [
+        {
+          "in": "header",
+          "name": "Ipsy-User-Id",
+          "schema": {
+            "type": "string"
           },
-          "required" : true
+          "required": true,
+          "example": "u-jfkqwzjqyx57fy",
+          "description": "Unique identifier of IPSY user."
         },
-        "responses" : {
-          "201" : {
-            "description" : "Order created successfully.",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "type" : "object"
+        {
+          "in": "path",
+          "name": "subscription_id",
+          "schema": {
+            "type": "string"
+          },
+          "required": true,
+          "example": "s-xy45hbdkhb",
+          "description": "Unique identifier of IPSY subscription."
+        },
+        {
+          "in": "path",
+          "name": "cycle_id",
+          "schema": {
+            "type": "string"
+          },
+          "required": true,
+          "example": "c-kjbd547hd",
+          "description": "Unique identifier of subscription cycle for which the order needs to be placed."
+        }
+      ],
+      "post": {
+        "summary": "Performs checkout operation.",
+        "description": "Does checkout for a user by getting the information needed for an order, and calling OrderShipmentService to perform the order. Currently supports just a Choice order for Extreme Customization, but may have future use cases in Add-ons/Flash sales and other order types.",
+        "responses": {
+          "201": {
+            "description": "Order created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/CheckoutResponse"
+                    }
+                  ]
                 }
               }
             }
           },
-          "400" : {
-            "description" : "Invalid request body",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/inline_response_400"
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "example": {
+                        "type": "SAFE.PERSISTENT.BAD_REQUEST",
+                        "message": "Request contains invalid data.",
+                        "details": [
+                          "User doesn't exist.",
+                          "Quantity should not be more than 1."
+                        ]
+                      }
+                    }
+                  ]
                 }
               }
             }
           },
-          "500" : {
-            "description" : "Server cannot process request",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/inline_response_500"
+          "500": {
+            "description": "Server cannot process request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "example": {
+                        "type": "SAFE.TRANSIENT.DATABASE_ERROR.CONNECTION_TIMEOUT",
+                        "message": "DB Connnection timeout",
+                        "details": [
+                          "User doesn't have permission to connnect to database."
+                        ]
+                      }
+                    }
+                  ]
                 }
               }
             }
           }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              },
+              "examples": {
+                "USER_SELECTED_CHOICE": {
+                  "value": {
+                    "order_type": "SELECTED_CHOICE",
+                    "order_lines": [
+                      {
+                        "item_id": "p-jk278n4vxnlk3y",
+                        "quantity": 1
+                      },
+                      {
+                        "item_id": "p-jk278n4guvvu",
+                        "quantity": 1
+                      },
+                      {
+                        "item_id": "p-jjgh78ynkb89",
+                        "quantity": 1
+                      }
+                    ]
+                  }
+                },
+                "FRONTEND_ASSIGNED_CHOICE": {
+                  "value": {
+                    "order_type": "ASSIGNED_CHOICE",
+                    "order_lines": [
+                      {
+                        "item_id": "p-jk278n4vxnlk3y",
+                        "quantity": 1
+                      },
+                      {
+                        "item_id": "p-jk278n4guvvu",
+                        "quantity": 1
+                      },
+                      {
+                        "item_id": "p-jjgh78ynkb89",
+                        "quantity": 1
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "description": "Checkout request params",
+          "required": true
         }
       }
     }
   },
-  "components" : {
-    "schemas" : {
-      "ErrorResponse" : {
-        "required" : [ "message", "type" ],
-        "type" : "object",
-        "properties" : {
-          "type" : {
-            "type" : "string",
-            "description" : "The type that uniquely identifies this error. The types have the following structure - [RETRIABILITY].[TRANSIENCY].[ERROR].[SUB_ERROR].[SUB_ERROR].[ETC], where RETRIABILITY indicates whether it is safe to retry the request that caused an error with possible values of SAFE and UNSAFE; TRANSIENCY indicates whether an error is likely to persist for the same request regardless of retrying with possible values of PERMANENT and TRANSIENT; ERROR (and SUB_ERROR) is an application specific type that identifies a particular problem, e.g. INVALID_STRUCTURE."
+  "servers": [
+    {
+      "url": "https://checkout.api.staging.ipsy.com/v1"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "type",
+          "message"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The type that uniquely identifies this error. The types have the following structure - [RETRIABILITY].[TRANSIENCY].[ERROR].[SUB_ERROR].[SUB_ERROR].[ETC], where RETRIABILITY indicates whether it is safe to retry the request that caused an error with possible values of SAFE and UNSAFE; TRANSIENCY indicates whether an error is likely to persist for the same request regardless of retrying with possible values of PERMANENT and TRANSIENT; ERROR (and SUB_ERROR) is an application specific type that identifies a particular problem, e.g. INVALID_STRUCTURE."
           },
-          "message" : {
-            "type" : "string",
-            "description" : "Contains a human-readable description of the problem that can be used for debugging."
+          "message": {
+            "type": "string",
+            "description": "Contains a human-readable description of the problem that can be used for debugging."
           },
-          "details" : {
-            "type" : "array",
-            "description" : "Contains additional information about the failure that may be helpful for consumers.",
-            "items" : {
-              "type" : "string"
+          "details": {
+            "type": "array",
+            "description": "Contains additional information about the failure that may be helpful for consumers.",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "UserOrderRequest" : {
-        "required" : [ "metadata", "products", "type", "user_id" ],
-        "type" : "object",
-        "properties" : {
-          "user_id" : {
-            "type" : "string",
-            "description" : "Unique identifier of IPSY user.",
-            "example" : "u-jfkqwzjqyx57fy"
+      "CheckoutResponse": {
+        "type": "object",
+        "required": [
+          "order_id"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "example": "o-hfy12jhbhbj",
+            "description": "Unique identifier of an order that has been created."
+          }
+        }
+      },
+      "CheckoutRequest": {
+        "type": "object",
+        "required": [
+          "order_type",
+          "products"
+        ],
+        "properties": {
+          "order_type": {
+            "type": "string",
+            "example": "SELECTED_CHOICE",
+            "description": "Order type. Currently supports just the two types of CHOICE orders we expect to receive, SELECTED_CHOICE and ASSIGNED_CHOICE. SELECTED_CHOICE should be used when the items passed in were manually selected by the user while ASSIGNED_CHOICE should be used when the items were automatically selected by the frontend when the user clicks “Surprise Me”."
           },
-          "type" : {
-            "type" : "string",
-            "description" : "Order type. Currently supports CHOICE order only. Possible values are CHOICE, ADDONS, GIFT, POINTS, etc.",
-            "example" : "CHOICE"
-          },
-          "metadata" : {
-            "$ref" : "#/components/schemas/Metadata"
-          },
-          "products" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Product"
+          "order_lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
             }
           }
         }
       },
-      "Product" : {
-        "required" : [ "id", "quantity" ],
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "description" : "Unique identifier of product.",
-            "example" : "p-jk278n4vxnlk3y"
+      "OrderItem": {
+        "type": "object",
+        "required": [
+          "item_id"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Unique identifier of product item.",
+            "example": "p-jk278n4vxnlk3y"
           },
-          "quantity" : {
-            "type" : "integer",
-            "description" : "Product quantity. For CHOICE orders value of this field must be 1.",
-            "example" : 1
+          "quantity": {
+            "type": "integer",
+            "description": "Product item quantity. Default value is 1.",
+            "example": 1
           }
         }
-      },
-      "Metadata" : {
-        "required" : [ "subscription_id" ],
-        "type" : "object",
-        "properties" : {
-          "subscription_id" : {
-            "type" : "string",
-            "description" : "Unique identifier of user's subscription for which the order is being placed.",
-            "example" : "s_k0friegma9ptg"
-          }
-        },
-        "description" : "Additional information needed to place OMS order."
-      },
-      "inline_response_400" : {
-        "allOf" : [ {
-          "$ref" : "#/components/schemas/ErrorResponse"
-        }, {
-          "example" : {
-            "type" : "SAFE.PERSISTENT.BAD_REQUEST",
-            "message" : "Request contains invalid data.",
-            "details" : [ "User doesn't exist.", "Quantity should not be more than 1." ]
-          }
-        } ]
-      },
-      "inline_response_500" : {
-        "allOf" : [ {
-          "$ref" : "#/components/schemas/ErrorResponse"
-        }, {
-          "example" : {
-            "type" : "SAFE.TRANSIENT.DATABASE_ERROR.CONNECTION_TIMEOUT",
-            "message" : "DB Connnection timeout",
-            "details" : [ "User doesn't have permission to connnect to database." ]
-          }
-        } ]
       }
     }
   }
